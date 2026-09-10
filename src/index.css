@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@theme {
+  --color-candy-pink: #FF9AA2;
+  --color-candy-blue: #B5DEFF;
+  --color-candy-yellow: #FFDAC1;
+  --color-candy-mint: #C7F9CC;
+  --color-candy-lavender: #E2D1F9;
+  --color-candy-peach: #FFB7B2;
+  --color-candy-cream: #FFF5F5;
+  --color-candy-text: #4A4A4A;
+  --color-candy-text-light: #8B8B8B;
+  --color-candy-white: #FFFFFF;
+  --color-candy-card: #FFFAF8;
+  --color-success: #77DD77;
+  --color-warning: #FFB347;
+  --color-danger: #FF6961;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --shadow-soft: 0 4px 20px rgba(255, 154, 162, 0.15);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Nunito", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: linear-gradient(135deg, #FFF5F5 0%, #F0F8FF 100%);
+  color: #4A4A4A;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #FFF5F5;
+}
+::-webkit-scrollbar-thumb {
+  background: #FF9AA2;
+  border-radius: 3px;
+}
+
+.card-perspective {
+  perspective: 1000px;
+}
+.card-inner {
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.card-inner.flipped {
+  transform: rotateY(180deg);
+}
+.card-front, .card-back {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-lg);
+}
+.card-back {
+  transform: rotateY(180deg);
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes confetti {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(-120px) rotate(360deg); opacity: 0; }
+}
+.animate-float { animation: float 3s ease-in-out infinite; }
+.animate-confetti { animation: confetti 0.8s ease-out forwards; }
