@@ -4,7 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  base: '/',
+  base: '/ai-flashcard/',
   plugins: [
     react(),
     tailwindcss(),
