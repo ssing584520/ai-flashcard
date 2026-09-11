@@ -116,7 +116,6 @@ export default function Review() {
             <span className="text-sm text-white/70 mb-2">
               {card.type === 'english' ? '🔤 英语单词' : card.type === 'chinese' ? '🀄 中文词语' : card.type === 'mistake' ? '❌ 错题' : '✏️ 自定义'}
             </span>
-            <p className="text-3xl font-black text-white text-center break-words">{card.front}</p>
             {card.type === 'english' && (
               <button
                 onClick={e => { e.stopPropagation(); speak(card.front, settings.accent, pickAudio(card, settings.accent)); }}
@@ -132,6 +131,14 @@ export default function Review() {
           </div>
 
           <div className="card-back bg-candy-card flex flex-col p-6 shadow-soft overflow-y-auto">
+            {card.type === 'english' && (
+              <div className="mb-4 pb-3 border-b border-candy-lavender">
+                <p className="text-2xl font-black text-candy-text text-center">{card.front}</p>
+                {card.metadata?.phonetic && (
+                  <p className="text-candy-text-light text-lg mt-1 font-mono text-center">{card.metadata.phonetic}</p>
+                )}
+              </div>
+            )}
             {(card.metadata?.meanings && card.metadata.meanings.length > 0) ? (
               (card.metadata.meanings as any[]).map((m: any, i: number) => {
                 const isPhrase = (card.front || '').trim().split(/\s+/).length > 1;
