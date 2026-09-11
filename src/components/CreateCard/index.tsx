@@ -174,6 +174,7 @@ export default function CreateCard() {
       front: front.trim() || '暂无内容',
       back: back.trim() || '暂无内容',
       metadata: {
+        phonetic: isMistake ? undefined : (result?.phonetic || result?.pinyin || undefined),
         imageUrl: isMistake ? (editedMistakeImage || mistakeImageSrc || undefined) : undefined,
         answerImageUrl: isMistake ? (editedAnswerImage || answerImageSrc || undefined) : undefined,
       },
