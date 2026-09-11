@@ -26,6 +26,7 @@ export interface CardMetadata {
   examples?: string[];
   pinyin?: string;
   imageUrl?: string;
+  answerImageUrl?: string;
   subject?: Subject;
   analysis?: string;
   mnemonic?: string;

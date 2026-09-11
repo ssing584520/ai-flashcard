@@ -34,6 +34,9 @@ export default function CreateCard() {
   const [error, setError] = useState('');
   const [mistakeImageSrc, setMistakeImageSrc] = useState<string | null>(null);
   const [editedMistakeImage, setEditedMistakeImage] = useState<string | null>(null);
+  const [answerImageSrc, setAnswerImageSrc] = useState<string | null>(null);
+  const [editedAnswerImage, setEditedAnswerImage] = useState<string | null>(null);
+  const [editorTarget, setEditorTarget] = useState<'question' | 'answer' | null>(null);
   const [showEditor, setShowEditor] = useState(false);
 
   const activeProvider: AIProviderConfig | undefined =
@@ -117,6 +120,27 @@ export default function CreateCard() {
     try {
       const base64 = await readFileAsBase64(file);
       setMistakeImageSrc(base64);
+      setEditorTarget('question');
+      setShowEditor(true);
+    } catch (e: any) {
+      setError(e.message || '读取图片失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAnswerImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLoading(true);
+    setError('');
+    setResult(null);
+    setEditedAnswerImage(null);
+
+    try {
+      const base64 = await readFileAsBase64(file);
+      setAnswerImageSrc(base64);
+      setEditorTarget('answer');
       setShowEditor(true);
     } catch (e: any) {
       setError(e.message || '读取图片失败');
@@ -126,9 +150,13 @@ export default function CreateCard() {
   };
 
   const handleEditorConfirm = (editedBase64: string) => {
-    setEditedMistakeImage(editedBase64);
+    if (editorTarget === 'answer') {
+      setEditedAnswerImage(editedBase64);
+    } else {
+      setEditedMistakeImage(editedBase64);
+    }
     setShowEditor(false);
-    setInput('');
+    setEditorTarget(null);
     setResult(null);
   };
 
@@ -147,6 +175,7 @@ export default function CreateCard() {
       back: back.trim() || '暂无内容',
       metadata: {
         imageUrl: isMistake ? (editedMistakeImage || mistakeImageSrc || undefined) : undefined,
+        answerImageUrl: isMistake ? (editedAnswerImage || answerImageSrc || undefined) : undefined,
       },
       category: '默认',
       tags: [],
@@ -158,6 +187,10 @@ export default function CreateCard() {
       setResult(null);
       setMistakeImageSrc(null);
       setEditedMistakeImage(null);
+      setAnswerImageSrc(null);
+      setEditedAnswerImage(null);
+      setEditorTarget(null);
+      setShowEditor(false);
       alert('✅ 卡片创建成功！');
     });
   };
@@ -230,58 +263,77 @@ export default function CreateCard() {
       )}
 
       {activeTab === 'mistake' && (
-        <div>
-          <label className="block text-sm font-bold text-candy-text mb-1">拍照上传错题</label>
-          {editedMistakeImage ? (
-            <div className="space-y-3">
-              <img src={editedMistakeImage} alt="裁剪后" className="w-full max-h-48 object-contain rounded-2xl border-2 border-candy-pink/20" />
-              <label className="block text-sm font-bold text-candy-text mb-1">答案（手动填写）</label>
-              <input
-                type="text"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                placeholder="输入正确答案..."
-                className="w-full px-4 py-3 rounded-xl border-2 border-candy-pink/30 focus:border-candy-pink focus:outline-none bg-candy-card text-candy-text"
-              />
-              <button
-                onClick={() => { setEditedMistakeImage(null); setMistakeImageSrc(null); setInput(''); setResult(null); }}
-                className="w-full bg-candy-card text-candy-text font-bold py-3 rounded-xl active:scale-95 transition-transform"
-              >
-                🔄 重新拍照
-              </button>
-            </div>
-          ) : mistakeImageSrc && !showEditor ? (
-            <div className="space-y-3">
-              <img src={mistakeImageSrc} alt="错题预览" className="w-full max-h-48 object-contain rounded-2xl border-2 border-candy-pink/20" />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowEditor(true)}
-                  className="flex-1 bg-candy-pink text-white font-bold py-3 rounded-xl active:scale-95 transition-all"
-                >
-                  📐 裁剪图片
-                </button>
-                <button
-                  onClick={() => { setMistakeImageSrc(null); setEditedMistakeImage(null); setResult(null); setInput(''); }}
-                  className="flex-1 bg-candy-card text-candy-text font-bold py-3 rounded-xl active:scale-95 transition-transform"
-                >
-                  🔄 重新拍照
-                </button>
+        <div className="space-y-4">
+          <div className="bg-candy-card rounded-2xl p-4 shadow-card">
+            <label className="block text-sm font-bold text-candy-text mb-2">📷 题目照片（正面）</label>
+            {editedMistakeImage ? (
+              <div className="space-y-2">
+                <img src={editedMistakeImage} alt="题目" className="w-full max-h-48 object-contain rounded-xl border-2 border-candy-pink/20" />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setEditedMistakeImage(null); setMistakeImageSrc(null); }}
+                    className="flex-1 bg-candy-cream text-candy-text font-bold py-2 rounded-xl active:scale-95 transition-transform text-sm"
+                  >
+                    🔄 重新拍照
+                  </button>
+                </div>
               </div>
+            ) : (
+              <label className="block border-2 border-dashed border-candy-pink/30 rounded-2xl p-6 text-center cursor-pointer hover:border-candy-pink transition-colors bg-candy-cream/50">
+                <div className="text-3xl mb-1">📷</div>
+                <p className="text-sm text-candy-text-light">点击拍照或选择题目图片</p>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleMistake}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+
+          <div className="bg-candy-card rounded-2xl p-4 shadow-card space-y-3">
+            <label className="block text-sm font-bold text-candy-text">✍️ 答案（背面）</label>
+            <input
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder="手动输入答案（可选）"
+              className="w-full px-4 py-3 rounded-xl border-2 border-candy-pink/30 focus:border-candy-pink focus:outline-none bg-candy-cream/50 text-candy-text"
+            />
+            <div>
+              {editedAnswerImage ? (
+                <div className="space-y-2">
+                  <img src={editedAnswerImage} alt="答案" className="w-full max-h-48 object-contain rounded-xl border-2 border-candy-pink/20" />
+                  <button
+                    onClick={() => { setEditedAnswerImage(null); setAnswerImageSrc(null); }}
+                    className="w-full bg-candy-cream text-candy-text font-bold py-2 rounded-xl active:scale-95 transition-transform text-sm"
+                  >
+                    🔄 重新拍照答案
+                  </button>
+                </div>
+              ) : (
+                <label className="block border-2 border-dashed border-candy-blue/30 rounded-2xl p-6 text-center cursor-pointer hover:border-candy-blue transition-colors bg-candy-cream/50">
+                  <div className="text-3xl mb-1">📷</div>
+                  <p className="text-sm text-candy-text-light">或拍照上传答案图片（适合数学应用题）</p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleAnswerImage}
+                    className="hidden"
+                  />
+                </label>
+              )}
             </div>
-          ) : (
-            <label className="block border-2 border-dashed border-candy-pink/30 rounded-2xl p-8 text-center cursor-pointer hover:border-candy-pink transition-colors bg-candy-card">
-              <div className="text-4xl mb-2">📷</div>
-              <p className="text-sm text-candy-text-light">点击拍照或选择图片</p>
-              <p className="text-xs text-candy-text-light mt-1">支持 JPG、PNG 格式</p>
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleMistake}
-                className="hidden"
-              />
-            </label>
-          )}
+            <button
+              onClick={handleSave}
+              className="w-full bg-gradient-to-r from-candy-pink to-candy-peach text-white font-bold py-3 rounded-xl shadow-soft active:scale-95 transition-transform"
+            >
+              💾 保存为卡片
+            </button>
+          </div>
         </div>
       )}
 
@@ -363,30 +415,17 @@ export default function CreateCard() {
         </div>
       )}
 
-      {(activeTab === 'mistake' && editedMistakeImage) && (
-        <div className="bg-candy-card rounded-2xl p-4 shadow-card">
-          <h3 className="font-bold text-candy-text mb-2">裁剪完成</h3>
-          <p className="text-sm text-candy-text-light mb-3">请填写答案后保存卡片</p>
-          <button
-            onClick={handleSave}
-            className="w-full bg-gradient-to-r from-candy-pink to-candy-peach text-white font-bold py-3 rounded-2xl shadow-soft active:scale-95 transition-transform"
-          >
-            💾 保存为卡片
-          </button>
-        </div>
-      )}
-
       {error && <p className="text-red-500 text-sm text-center">{error}</p>}
       {loading && (
         <p className="text-center text-candy-text-light text-sm animate-pulse">
           ⏳ 加载中...
         </p>
       )}
-      {showEditor && mistakeImageSrc && (
+      {showEditor && (
         <ImageEditor
-          imageSrc={mistakeImageSrc}
+          imageSrc={editorTarget === 'answer' ? (answerImageSrc || '') : (mistakeImageSrc || '')}
           onConfirm={handleEditorConfirm}
-          onCancel={() => setShowEditor(false)}
+          onCancel={() => { setShowEditor(false); setEditorTarget(null); }}
         />
       )}
     </div>

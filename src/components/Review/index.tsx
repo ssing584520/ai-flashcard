@@ -215,7 +215,10 @@ export default function Review() {
                 )}
               </div>
             ) : (
-              <div className="flex-1 flex items-center justify-center">
+              <div className="flex-1 flex flex-col items-center justify-center gap-4 py-2">
+                {card.type === 'mistake' && card.metadata?.answerImageUrl && (
+                  <img src={card.metadata.answerImageUrl} alt="答案" className="max-h-56 object-contain rounded-xl border-2 border-candy-pink/20" />
+                )}
                 <p className="text-lg font-bold text-candy-text whitespace-pre-line text-center">
                   {(card.back && card.back !== '暂无内容' ? card.back : card.front)}
                 </p>
