@@ -7,7 +7,7 @@ import type { CardType, CardColor } from '../../types';
 import type { AIProviderConfig } from '../../services/ai';
 import ImageEditor from './ImageEditor';
 
-let lastGen: { tab: CardType | 'mistake'; input: string; providerId: string; base64?: string } | null = null;
+let lastGen: { tab: CardType; input: string; providerId: string; base64?: string } | null = null;
 
 function genKey(tab: string, word: string, cfg: AIProviderConfig): string {
   return `${tab}:${cfg.id}:${cfg.model}:${word.trim()}`;
@@ -109,7 +109,6 @@ export default function CreateCard() {
   const handleMistake = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!activeProvider) { setError('请先在「设置」中添加并保存 AI 服务商'); return; }
     setLoading(true);
     setError('');
     setResult(null);
@@ -126,80 +125,39 @@ export default function CreateCard() {
     }
   };
 
-  const handleEditorConfirm = async (editedBase64: string) => {
+  const handleEditorConfirm = (editedBase64: string) => {
     setEditedMistakeImage(editedBase64);
     setShowEditor(false);
-    setLoading(true);
-    setError('');
-    try {
-      const aiResult = await cachedCall(`mistake:${editedBase64}`, () =>
-        import('../../services/ai').then(m => m.analyzeMistake(editedBase64, activeProvider!))
-      );
-      setResult(aiResult);
-      setInput(aiResult.question || '错题');
-      lastGen = { tab: 'mistake', input: aiResult.question || '错题', providerId: activeProvider!.id, base64: editedBase64 };
-    } catch (e: any) {
-      setError(e.message || '识别失败，请重试');
-    } finally {
-      setLoading(false);
-    }
+    setInput('');
+    setResult(null);
   };
 
   const handleSave = () => {
-    if (!result) return;
-
-    const chineseMeanings = activeTab === 'chinese' ? (result.meanings || []) : [];
-    const chineseExamples = activeTab === 'chinese'
-      ? ((result.examples as string[])?.filter((e: string) => e && e.trim()) || [])
-      : [];
-
-    const front = activeTab === 'chinese'
-      ? (result.pinyin && result.pinyin.trim() ? result.pinyin : input.trim())
-      : activeTab === 'mistake' ? result.question || input : input;
-
-    const backLines = activeTab === 'english'
-      ? (() => {
-          const lines = (result.meanings || []).map((m: any) => `${m.word ? m.word + ' · ' : ''}${m.partOfSpeech} ${m.definition}${m.example ? ' "' + m.example + '"' : ''}`);
-          if (lines.length > 0) return lines.join('\n\n');
-          const exs = (result.examples as string[]) || [];
-          if (exs.length > 0) return [input.trim(), ...exs].join('\n');
-          return input.trim();
-        })()
-      : activeTab === 'chinese'
-      ? [input.trim(), ...(chineseExamples.length > 0 ? chineseExamples : chineseMeanings.map((m: any) => m.example || m.definition))].filter(Boolean).join('\n')
-      : result.answer || result.analysis || '暂无内容';
+    const isMistake = activeTab === 'mistake';
+    const front = isMistake ? (editedMistakeImage || mistakeImageSrc || '') : input.trim();
+    const back = isMistake ? (input.trim() || '暂无内容') : (result?.answer || result?.analysis || '暂无内容');
 
     const colorMap: Record<string, CardColor> = {
-      english: 'pink',
-      chinese: 'blue',
-      mistake: 'yellow',
-      custom: 'mint'
+      english: 'pink', chinese: 'blue', mistake: 'yellow', custom: 'mint'
     };
 
     addCard({
       type: activeTab,
-      front: front.trim(),
-      back: backLines.trim() || '暂无内容',
+      front: front.trim() || '暂无内容',
+      back: back.trim() || '暂无内容',
       metadata: {
-        phonetic: result.phonetic,
-        phonetics: result.phonetics,
-        wordFamily: Array.isArray(result.wordFamily) ? result.wordFamily : undefined,
-        meanings: result.meanings,
-        pinyin: result.pinyin,
-        imageUrl: activeTab === 'mistake' ? (editedMistakeImage || mistakeImageSrc || undefined) : undefined,
-        subject: activeTab === 'mistake' ? result.subject : undefined,
-        analysis: result.analysis,
-        mnemonic: result.mnemonic,
-        examples: [] as string[],
+        imageUrl: isMistake ? (editedMistakeImage || mistakeImageSrc || undefined) : undefined,
       },
       category: '默认',
       tags: [],
       difficulty: 2.5,
-      source: result.source || 'ai',
+      source: 'manual',
       color: colorMap[activeTab] || 'pink'
     }).then(() => {
       setInput('');
       setResult(null);
+      setMistakeImageSrc(null);
+      setEditedMistakeImage(null);
       alert('✅ 卡片创建成功！');
     });
   };
@@ -212,7 +170,7 @@ export default function CreateCard() {
         {([
           { id: 'english', label: '🔤 英语单词', desc: '查词 + AI 生成' },
           { id: 'chinese', label: '🀄 中文词语', desc: 'AI 生成' },
-          { id: 'mistake', label: '❌ 错题拍照', desc: 'AI 识别' },
+          { id: 'mistake', label: '❌ 错题拍照', desc: '手动裁剪' },
           { id: 'custom', label: '✏️ 自定义', desc: '手动填写' }
         ] as { id: CardType; label: string; desc: string }[]).map(t => (
           <button
@@ -273,25 +231,26 @@ export default function CreateCard() {
 
       {activeTab === 'mistake' && (
         <div>
-          {settings.aiProviders.length > 0 && (
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs text-candy-text-light flex-shrink-0">🤖 AI 服务商</span>
-              <select
-                value={activeProvider?.id || ''}
-                onChange={e => {
-                  setActiveAIProvider(e.target.value);
-                  setResult(null);
-                }}
-                className="flex-1 px-3 py-2 rounded-xl border-2 border-candy-pink/20 bg-candy-cream text-sm font-bold text-candy-text"
-              >
-                {settings.aiProviders.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}{p.apiKey ? '' : '（未填 Key）'}</option>
-                ))}
-              </select>
-            </div>
-          )}
           <label className="block text-sm font-bold text-candy-text mb-1">拍照上传错题</label>
-          {mistakeImageSrc && !showEditor ? (
+          {editedMistakeImage ? (
+            <div className="space-y-3">
+              <img src={editedMistakeImage} alt="裁剪后" className="w-full max-h-48 object-contain rounded-2xl border-2 border-candy-pink/20" />
+              <label className="block text-sm font-bold text-candy-text mb-1">答案（手动填写）</label>
+              <input
+                type="text"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                placeholder="输入正确答案..."
+                className="w-full px-4 py-3 rounded-xl border-2 border-candy-pink/30 focus:border-candy-pink focus:outline-none bg-candy-card text-candy-text"
+              />
+              <button
+                onClick={() => { setEditedMistakeImage(null); setMistakeImageSrc(null); setInput(''); setResult(null); }}
+                className="w-full bg-candy-card text-candy-text font-bold py-3 rounded-xl active:scale-95 transition-transform"
+              >
+                🔄 重新拍照
+              </button>
+            </div>
+          ) : mistakeImageSrc && !showEditor ? (
             <div className="space-y-3">
               <img src={mistakeImageSrc} alt="错题预览" className="w-full max-h-48 object-contain rounded-2xl border-2 border-candy-pink/20" />
               <div className="flex gap-2">
@@ -299,11 +258,11 @@ export default function CreateCard() {
                   onClick={() => setShowEditor(true)}
                   className="flex-1 bg-candy-pink text-white font-bold py-3 rounded-xl active:scale-95 transition-all"
                 >
-                  📐 裁剪 & 擦除答案
+                  📐 裁剪图片
                 </button>
                 <button
                   onClick={() => { setMistakeImageSrc(null); setEditedMistakeImage(null); setResult(null); setInput(''); }}
-                  className="flex-1 bg-candy-card text-candy-text font-bold py-3 rounded-xl active:scale-95 transition-all"
+                  className="flex-1 bg-candy-card text-candy-text font-bold py-3 rounded-xl active:scale-95 transition-transform"
                 >
                   🔄 重新拍照
                 </button>
@@ -404,10 +363,23 @@ export default function CreateCard() {
         </div>
       )}
 
+      {(activeTab === 'mistake' && editedMistakeImage) && (
+        <div className="bg-candy-card rounded-2xl p-4 shadow-card">
+          <h3 className="font-bold text-candy-text mb-2">裁剪完成</h3>
+          <p className="text-sm text-candy-text-light mb-3">请填写答案后保存卡片</p>
+          <button
+            onClick={handleSave}
+            className="w-full bg-gradient-to-r from-candy-pink to-candy-peach text-white font-bold py-3 rounded-2xl shadow-soft active:scale-95 transition-transform"
+          >
+            💾 保存为卡片
+          </button>
+        </div>
+      )}
+
       {error && <p className="text-red-500 text-sm text-center">{error}</p>}
       {loading && (
         <p className="text-center text-candy-text-light text-sm animate-pulse">
-          {activeTab === 'mistake' ? '🔍 AI 正在识别图片...' : '🤖 AI 正在生成内容...'}
+          ⏳ 加载中...
         </p>
       )}
       {showEditor && mistakeImageSrc && (
