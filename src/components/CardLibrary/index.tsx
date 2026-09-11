@@ -10,6 +10,7 @@ function getChineseWord(card: FlashCard): string {
 }
 
 function getCardLabel(card: FlashCard): string {
+  if (card.type === 'mistake') return card.metadata?.imageUrl ? '错题图片' : (card.back && card.back !== '暂无内容' ? card.back : '错题');
   return card.type === 'chinese' ? getChineseWord(card) : card.front;
 }
 
@@ -62,14 +63,15 @@ export default function CardLibrary() {
 
   const filtered = cards
     .filter((c: FlashCard) => {
-      const matchSearch = !search || c.front.includes(search) || c.tags.some((t: string) => t.includes(search));
+      const searchable = c.type === 'mistake' ? (c.back || '') : c.front;
+      const matchSearch = !search || searchable.includes(search) || c.tags.some((t: string) => t.includes(search));
       const matchType = filterType === 'all' || c.type === filterType;
       const matchCat = filterCategory === 'all' || c.category === filterCategory;
       return matchSearch && matchType && matchCat;
     })
     .sort((a, b) => {
-      const keyA = a.type === 'chinese' ? getChineseWord(a) : a.front;
-      const keyB = b.type === 'chinese' ? getChineseWord(b) : b.front;
+      const keyA = getCardLabel(a);
+      const keyB = getCardLabel(b);
       return keyA.localeCompare(keyB, 'zh', { sensitivity: 'base' });
     });
 
@@ -245,9 +247,18 @@ function CardPreview({ card, onClose }: { card: FlashCard; onClose: () => void }
         {!flipped ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
             <span className="text-5xl">{card.type === 'english' ? '🔤' : card.type === 'chinese' ? '🀄' : card.type === 'mistake' ? '❌' : '✏️'}</span>
-            <p className="text-3xl font-black text-candy-text leading-tight mt-2">{card.front}</p>
-            {m.phonetic && <p className="text-candy-pink font-semibold">/{m.phonetic}/</p>}
-            {m.pinyin && m.pinyin !== card.front && <p className="text-candy-pink font-semibold">{m.pinyin}</p>}
+            {card.type === 'mistake' && m.imageUrl ? (
+              <>
+                <img src={m.imageUrl} alt="错题" className="max-h-44 object-contain rounded-xl mt-2" />
+                <p className="text-xs text-candy-text-light mt-1">错题图片 · {card.back && card.back !== '暂无内容' ? card.back : '点击查看答案'}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-3xl font-black text-candy-text leading-tight mt-2">{card.front}</p>
+                {m.phonetic && <p className="text-candy-pink font-semibold">{card.type === 'chinese' ? m.phonetic : `/${m.phonetic}/`}</p>}
+                {m.pinyin && m.pinyin !== card.front && <p className="text-candy-pink font-semibold">{m.pinyin}</p>}
+              </>
+            )}
             <div className="flex gap-1.5 mt-3 flex-wrap justify-center">
               {card.tags.map((tag: string, i: number) => (
                 <span key={i} className="text-xs bg-candy-cream text-candy-text-light px-2 py-0.5 rounded-full">{tag}</span>
@@ -256,7 +267,16 @@ function CardPreview({ card, onClose }: { card: FlashCard; onClose: () => void }
           </div>
         ) : (
           <div className="flex-1 space-y-3 overflow-y-auto">
-            {m.meanings && m.meanings.length > 0 ? (
+            {card.type === 'mistake' && m.answerImageUrl && (
+              <img src={m.answerImageUrl} alt="答案" className="max-h-44 object-contain rounded-xl mt-1" />
+            )}
+            {card.type === 'mistake' ? (
+              card.back && card.back !== '暂无内容' ? (
+                <p className="text-base text-candy-text">{card.back}</p>
+              ) : (
+                !m.answerImageUrl && !m.imageUrl && <p className="text-candy-text-light text-sm">点击添加答案内容</p>
+              )
+            ) : m.meanings && m.meanings.length > 0 ? (
               m.meanings.map((mm, i) => {
                 const isPhrase = (card.front || '').trim().split(/\s+/).length > 1;
                 return (
