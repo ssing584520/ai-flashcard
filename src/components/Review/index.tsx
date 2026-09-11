@@ -147,6 +147,9 @@ export default function Review() {
             <span className="text-sm text-white/70 mb-2">
               {card.type === 'english' ? '🔤 英语单词' : card.type === 'chinese' ? '🀄 中文词语' : card.type === 'mistake' ? '❌ 错题' : '✏️ 自定义'}
             </span>
+            {card.type === 'mistake' && card.metadata?.imageUrl && (
+              <img src={card.metadata.imageUrl} alt="错题" className="max-h-48 object-contain mb-3 rounded-lg" />
+            )}
             {card.type === 'english' && (
               <button
                 onClick={e => { e.stopPropagation(); speak(card.front, settings.accent, pickAudio(card, settings.accent)); }}

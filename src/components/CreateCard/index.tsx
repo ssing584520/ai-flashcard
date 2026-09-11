@@ -5,6 +5,7 @@ import { cnPartOfSpeech } from '../../services/dictionary';
 import { cachedCall, waitCached } from '../../services/ai';
 import type { CardType, CardColor } from '../../types';
 import type { AIProviderConfig } from '../../services/ai';
+import ImageEditor from './ImageEditor';
 
 let lastGen: { tab: CardType | 'mistake'; input: string; providerId: string; base64?: string } | null = null;
 
@@ -31,6 +32,9 @@ export default function CreateCard() {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [mistakeImageSrc, setMistakeImageSrc] = useState<string | null>(null);
+  const [editedMistakeImage, setEditedMistakeImage] = useState<string | null>(null);
+  const [showEditor, setShowEditor] = useState(false);
 
   const activeProvider: AIProviderConfig | undefined =
     settings.aiProviders.find(p => p.id === settings.aiActiveProviderId) || settings.aiProviders[0];
@@ -109,16 +113,31 @@ export default function CreateCard() {
     setLoading(true);
     setError('');
     setResult(null);
+    setEditedMistakeImage(null);
 
     try {
       const base64 = await readFileAsBase64(file);
-      const key = genKey('mistake', base64, activeProvider);
-      lastGen = { tab: 'mistake', input: file.name, providerId: activeProvider.id, base64 };
-      const aiResult = await cachedCall(key, () =>
-        import('../../services/ai').then(m => m.analyzeMistake(base64, activeProvider))
+      setMistakeImageSrc(base64);
+      setShowEditor(true);
+    } catch (e: any) {
+      setError(e.message || '读取图片失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditorConfirm = async (editedBase64: string) => {
+    setEditedMistakeImage(editedBase64);
+    setShowEditor(false);
+    setLoading(true);
+    setError('');
+    try {
+      const aiResult = await cachedCall(`mistake:${editedBase64}`, () =>
+        import('../../services/ai').then(m => m.analyzeMistake(editedBase64, activeProvider!))
       );
       setResult(aiResult);
-      setInput(aiResult.question || file.name);
+      setInput(aiResult.question || '错题');
+      lastGen = { tab: 'mistake', input: aiResult.question || '错题', providerId: activeProvider!.id, base64: editedBase64 };
     } catch (e: any) {
       setError(e.message || '识别失败，请重试');
     } finally {
@@ -167,9 +186,11 @@ export default function CreateCard() {
         wordFamily: Array.isArray(result.wordFamily) ? result.wordFamily : undefined,
         meanings: result.meanings,
         pinyin: result.pinyin,
+        imageUrl: activeTab === 'mistake' ? (editedMistakeImage || mistakeImageSrc || undefined) : undefined,
+        subject: activeTab === 'mistake' ? result.subject : undefined,
         analysis: result.analysis,
         mnemonic: result.mnemonic,
-        subject: activeTab === 'mistake' ? result.subject : undefined
+        examples: [] as string[],
       },
       category: '默认',
       tags: [],
@@ -270,18 +291,38 @@ export default function CreateCard() {
             </div>
           )}
           <label className="block text-sm font-bold text-candy-text mb-1">拍照上传错题</label>
-          <label className="block border-2 border-dashed border-candy-pink/30 rounded-2xl p-8 text-center cursor-pointer hover:border-candy-pink transition-colors bg-candy-card">
-            <div className="text-4xl mb-2">📷</div>
-            <p className="text-sm text-candy-text-light">点击拍照或选择图片</p>
-            <p className="text-xs text-candy-text-light mt-1">支持 JPG、PNG 格式</p>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleMistake}
-              className="hidden"
-            />
-          </label>
+          {mistakeImageSrc && !showEditor ? (
+            <div className="space-y-3">
+              <img src={mistakeImageSrc} alt="错题预览" className="w-full max-h-48 object-contain rounded-2xl border-2 border-candy-pink/20" />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowEditor(true)}
+                  className="flex-1 bg-candy-pink text-white font-bold py-3 rounded-xl active:scale-95 transition-all"
+                >
+                  📐 裁剪 & 擦除答案
+                </button>
+                <button
+                  onClick={() => { setMistakeImageSrc(null); setEditedMistakeImage(null); setResult(null); setInput(''); }}
+                  className="flex-1 bg-candy-card text-candy-text font-bold py-3 rounded-xl active:scale-95 transition-all"
+                >
+                  🔄 重新拍照
+                </button>
+              </div>
+            </div>
+          ) : (
+            <label className="block border-2 border-dashed border-candy-pink/30 rounded-2xl p-8 text-center cursor-pointer hover:border-candy-pink transition-colors bg-candy-card">
+              <div className="text-4xl mb-2">📷</div>
+              <p className="text-sm text-candy-text-light">点击拍照或选择图片</p>
+              <p className="text-xs text-candy-text-light mt-1">支持 JPG、PNG 格式</p>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleMistake}
+                className="hidden"
+              />
+            </label>
+          )}
         </div>
       )}
 
@@ -368,6 +409,13 @@ export default function CreateCard() {
         <p className="text-center text-candy-text-light text-sm animate-pulse">
           {activeTab === 'mistake' ? '🔍 AI 正在识别图片...' : '🤖 AI 正在生成内容...'}
         </p>
+      )}
+      {showEditor && mistakeImageSrc && (
+        <ImageEditor
+          imageSrc={mistakeImageSrc}
+          onConfirm={handleEditorConfirm}
+          onCancel={() => setShowEditor(false)}
+        />
       )}
     </div>
   );

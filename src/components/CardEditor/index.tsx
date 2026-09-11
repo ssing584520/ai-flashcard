@@ -172,6 +172,32 @@ export default function CardEditor({ type: initialType = 'english', onSuccess }:
 
       {form.type === 'mistake' && (
         <>
+          {form.imageUrl && (
+            <div className="mb-2">
+              <img src={form.imageUrl} alt="错题" className="w-full max-h-40 object-contain rounded-xl border-2 border-candy-pink/20" />
+            </div>
+          )}
+          <label className="block text-sm font-bold text-candy-text mb-1">
+            {form.imageUrl ? '更换错题图片' : '上传错题图片'}
+          </label>
+          <label className="block border-2 border-dashed border-candy-pink/30 rounded-2xl p-6 text-center cursor-pointer hover:border-candy-pink transition-colors bg-candy-card mb-3">
+            <div className="text-3xl mb-1">📷</div>
+            <p className="text-xs text-candy-text-light">点击上传图片</p>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={e => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onload = () => update('imageUrl', reader.result as string);
+                  reader.readAsDataURL(file);
+                }
+              }}
+              className="hidden"
+            />
+          </label>
           <div>
             <label className="block text-sm font-bold text-candy-text mb-1">答案</label>
             <input
