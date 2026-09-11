@@ -150,6 +150,9 @@ export default function Review() {
             {card.type === 'mistake' && card.metadata?.imageUrl && (
               <img src={card.metadata.imageUrl} alt="错题" className="max-h-48 object-contain mb-3 rounded-lg" />
             )}
+            {card.type !== 'english' && card.type !== 'mistake' && (
+              <p className="text-3xl font-black text-white text-center break-words leading-tight">{card.front}</p>
+            )}
             {card.type === 'english' && (
               <button
                 onClick={e => { e.stopPropagation(); speak(card.front, settings.accent, pickAudio(card, settings.accent)); }}
