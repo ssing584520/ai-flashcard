@@ -14,6 +14,7 @@ interface Point {
 export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [displaySize, setDisplaySize] = useState<Point>({ x: 0, y: 0 });
+  const [imgRect, setImgRect] = useState<DOMRect | null>(null);
   const [selection, setSelection] = useState<{ start: Point | null; end: Point | null }>({ start: null, end: null });
   const [isSelecting, setIsSelecting] = useState(false);
   const [eraseSpots, setEraseSpots] = useState<{ x: number; y: number }[]>([]);
@@ -27,25 +28,33 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
     const maxW = container.clientWidth - 32;
     const maxH = container.clientHeight - 32;
     const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
-    setDisplaySize({ x: img.naturalWidth * scale, y: img.naturalHeight * scale });
+    const w = img.naturalWidth * scale;
+    const h = img.naturalHeight * scale;
+    setDisplaySize({ x: w, y: h });
+    setImgRect(img.getBoundingClientRect());
   }, []);
+
+  const getImageCoords = useCallback((clientX: number, clientY: number): Point => {
+    const rect = imgRect;
+    if (!rect) return { x: 0, y: 0 };
+    return {
+      x: (clientX - rect.left) / rect.width * displaySize.x,
+      y: (clientY - rect.top) / rect.height * displaySize.y
+    };
+  }, [imgRect, displaySize]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (mode !== 'crop') return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * displaySize.x;
-    const y = (e.clientY - rect.top) / rect.height * displaySize.y;
-    setSelection({ start: { x, y }, end: null });
+    const coords = getImageCoords(e.clientX, e.clientY);
+    setSelection({ start: coords, end: null });
     setIsSelecting(true);
-  }, [mode, displaySize]);
+  }, [mode, getImageCoords]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isSelecting || mode !== 'crop') return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * displaySize.x;
-    const y = (e.clientY - rect.top) / rect.height * displaySize.y;
-    setSelection(prev => ({ ...prev, end: { x, y } }));
-  }, [isSelecting, mode, displaySize]);
+    const coords = getImageCoords(e.clientX, e.clientY);
+    setSelection(prev => ({ ...prev, end: coords }));
+  }, [isSelecting, mode, getImageCoords]);
 
   const handleMouseUp = useCallback(() => {
     setIsSelecting(false);
@@ -53,11 +62,9 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
 
   const handleEraseClick = useCallback((e: React.MouseEvent) => {
     if (mode !== 'erase') return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * displaySize.x;
-    const y = (e.clientY - rect.top) / rect.height * displaySize.y;
-    setEraseSpots(prev => [...prev, { x, y }]);
-  }, [mode, displaySize]);
+    const coords = getImageCoords(e.clientX, e.clientY);
+    setEraseSpots(prev => [...prev, coords]);
+  }, [mode, getImageCoords]);
 
   const handleConfirm = useCallback(() => {
     if (!imgRef.current) return;
