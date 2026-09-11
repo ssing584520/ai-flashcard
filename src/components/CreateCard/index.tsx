@@ -287,7 +287,7 @@ export default function CreateCard() {
 
       {activeTab === 'custom' && (
         <button
-          onClick={() => (window.location.hash = '#/editor/custom')}
+          onClick={() => (window.location.hash = '#/editor')}
           className="w-full bg-candy-card text-candy-text font-bold py-4 rounded-2xl shadow-card active:scale-95 transition-transform"
         >
           ✏️ 手动编辑卡片

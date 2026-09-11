@@ -13,8 +13,8 @@ export default function App() {
 
   useEffect(() => {
     const handleHash = () => {
-      const hash = window.location.hash.replace('#/', '') as Page;
-      if (['dashboard', 'review', 'library', 'create', 'settings'].includes(hash)) {
+      const hash = window.location.hash.replace(/^#\/?/, '') as Page;
+      if (['dashboard', 'review', 'library', 'create', 'editor', 'settings'].includes(hash)) {
         setPage(hash);
       }
     };
@@ -24,7 +24,7 @@ export default function App() {
   }, []);
 
   const navigate = (p: Page) => {
-    window.location.hash = p === 'dashboard' ? '' : `#${p}`;
+    window.location.hash = p === 'dashboard' ? '' : `#/${p}`;
     setPage(p);
   };
 
