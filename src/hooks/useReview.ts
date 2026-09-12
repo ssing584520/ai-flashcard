@@ -3,6 +3,8 @@ import { calculateNextReview } from '../services/srs';
 import { db } from '../services/db';
 import type { ReviewRating } from '../types';
 
+const FLIP_DURATION = 600;
+
 export function useReview() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -46,11 +48,13 @@ export function useReview() {
     });
 
     setIsFlipped(false);
-    if (currentIndex < sessionCards.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-    } else {
-      setSessionDone(true);
-    }
+    setTimeout(() => {
+      if (currentIndex < sessionCards.length - 1) {
+        setCurrentIndex(prev => prev + 1);
+      } else {
+        setSessionDone(true);
+      }
+    }, FLIP_DURATION);
   }, [currentIndex, sessionCards]);
 
   const progress = sessionCards.length > 0 ? ((currentIndex + 1) / sessionCards.length) * 100 : 0;

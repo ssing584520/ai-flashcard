@@ -39,7 +39,7 @@ export default function App() {
   return (
     <div className="min-h-screen pb-20">
       {page === 'dashboard' && <Dashboard />}
-      {page === 'review' && <Review />}
+      {page === 'review' && <Review onHome={() => navigate('dashboard')} />}
       {page === 'library' && <CardLibrary />}
       {page === 'create' && <CreateCard />}
       {page === 'editor' && <CardEditor type="english" onSuccess={() => navigate('library')} />}

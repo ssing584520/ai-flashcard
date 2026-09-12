@@ -60,25 +60,30 @@ function speak(word: string, accent: 'uk' | 'us', audioUrl?: string): void {
   }
 }
 
-export default function Review() {
+export default function Review({ onHome }: { onHome?: () => void }) {
   const { settings } = useSettings();
-  const { cards, getDueCards } = useCards();
+  const { cards, getDueCards, reload } = useCards();
   const { currentIndex, isFlipped, sessionCards, startSession, flip, rate, progress, sessionDone } = useReview();
   const [started, setStarted] = useState(false);
+  const [notice, setNotice] = useState('');
   const card = sessionCards[currentIndex] as FlashCard | undefined;
   const backLines = card ? (card.back || '').split('\n').map(l => l.trim()).filter(Boolean) : [];
 
   const handleStart = () => {
+    setNotice('');
     getDueCards().then(due => {
       if (due.length > 0) {
         startSession(due);
         setStarted(true);
+      } else {
+        setNotice('今天没有到期卡片，休息一下吧 ✨');
       }
-    });
+    }).catch(() => setNotice('加载复习卡片失败，请重试'));
   };
 
-  const handleRestart = () => {
+  const handleRestart = async () => {
     setStarted(false);
+    await reload();
     handleStart();
   };
 
@@ -96,6 +101,9 @@ export default function Review() {
         >
           开始复习 ✨
         </button>
+        {notice && (
+          <p className="text-candy-text-light text-sm mt-4 text-center">{notice}</p>
+        )}
       </div>
     );
   }
@@ -114,7 +122,7 @@ export default function Review() {
             再来一轮 🔄
           </button>
           <button
-            onClick={() => setStarted(false)}
+            onClick={() => (onHome ? onHome() : setStarted(false))}
             className="bg-candy-mint text-candy-text font-bold py-3 px-8 rounded-full shadow-card active:scale-95 transition-transform"
           >
             返回首页 🏠
@@ -222,9 +230,11 @@ export default function Review() {
                 {card.type === 'mistake' && card.metadata?.answerImageUrl && (
                   <img src={card.metadata.answerImageUrl} alt="答案" className="max-h-56 object-contain rounded-xl border-2 border-candy-pink/20" />
                 )}
-                <p className="text-lg font-bold text-candy-text whitespace-pre-line text-center">
-                  {(card.back && card.back !== '暂无内容' ? card.back : card.front)}
-                </p>
+                {card.back && card.back !== '暂无内容' ? (
+                  <p className={`${card.type === 'custom' ? 'text-3xl' : 'text-lg'} font-bold text-candy-text whitespace-pre-line text-center`}>{card.back}</p>
+                ) : card.type !== 'mistake' && (
+                  <p className={`${card.type === 'custom' ? 'text-3xl' : 'text-lg'} font-bold text-candy-text whitespace-pre-line text-center`}>{card.front}</p>
+                )}
               </div>
             )}
             {card.metadata?.examples && (card.metadata.examples as string[]).map((ex: string, i: number) => (

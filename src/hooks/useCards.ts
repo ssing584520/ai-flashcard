@@ -39,9 +39,17 @@ export function useCards() {
   const getDueCards = useCallback(async () => {
     const all = await db.cards.toArray();
     const now = Date.now();
+    const latest = new Map<string, ReviewLog>();
+    for (const r of reviews) {
+      const prev = latest.get(r.cardId);
+      if (!prev || r.createdAt > prev.createdAt) latest.set(r.cardId, r);
+    }
     return all.filter(c => {
-      const review = reviews.find(r => r.cardId === c.id);
-      return !review || review.nextReview <= now;
+      const review = latest.get(c.id);
+      if (!review) return true;
+      if (review.nextReview <= now) return true;
+      const notMastered = review.rating === 'forget' || review.rating === 'hard';
+      return notMastered;
     });
   }, [reviews]);
 

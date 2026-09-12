@@ -87,7 +87,11 @@ export default function Dashboard() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-candy-text truncate">
-                  {card.type === 'chinese' ? getChineseWord(card) : card.front}
+                  {card.type === 'chinese'
+                    ? getChineseWord(card)
+                    : card.type === 'mistake'
+                    ? (card.back && card.back !== '暂无内容' ? card.back : '错题')
+                    : card.front}
                 </p>
                 <p className="text-xs text-candy-text-light truncate">
                   {card.type === 'english'
