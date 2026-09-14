@@ -5,8 +5,7 @@ import { cnPartOfSpeech } from '../../services/dictionary';
 import type { FlashCard, ReviewLog } from '../../types';
 
 function getChineseWord(card: FlashCard): string {
-  const first = (card.back || '').split('\n')[0]?.trim();
-  return first || card.front;
+  return (card.front || '').trim() || (card.back && card.back !== '暂无内容' ? card.back : '');
 }
 
 function getCardLabel(card: FlashCard): string {
@@ -292,6 +291,19 @@ function CardPreview({ card, onClose }: { card: FlashCard; onClose: () => void }
                   </div>
                 );
               })
+            ) : card.type === 'chinese' ? (
+              <>
+                <p className="text-2xl font-black text-candy-text">{card.front}</p>
+                {m.examples && m.examples.length > 0 ? (
+                  <div className="space-y-3 mt-1">
+                    {m.examples.map((ex: string, i: number) => (
+                      <p key={i} className="text-base text-candy-text">💬 {ex}</p>
+                    ))}
+                  </div>
+                ) : card.back && card.back !== '暂无内容' ? (
+                  <p className="text-base text-candy-text">{card.back}</p>
+                ) : null}
+              </>
             ) : (
               <p className="text-base text-candy-text">{card.back && card.back !== '暂无内容' ? card.back : card.front}</p>
             )}
