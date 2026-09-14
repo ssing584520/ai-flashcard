@@ -13,6 +13,7 @@ export default function Review({ onHome }: { onHome?: () => void }) {
   const [started, setStarted] = useState(false);
   const [notice, setNotice] = useState('');
   const [selectedType, setSelectedType] = useState<CardType | 'all'>('all');
+  const [zoomImage, setZoomImage] = useState<string | null>(null);
   const card = sessionCards[currentIndex] as FlashCard | undefined;
   const backLines = card ? (card.back || '').split('\n').map(l => l.trim()).filter(Boolean) : [];
 
@@ -123,7 +124,12 @@ export default function Review({ onHome }: { onHome?: () => void }) {
               {card.type === 'english' ? '🔤 英语单词' : card.type === 'chinese' ? '🀄 中文词语' : card.type === 'mistake' ? '❌ 错题' : '✏️ 自定义'}
             </span>
             {card.type === 'mistake' && card.metadata?.imageUrl && (
-              <img src={card.metadata.imageUrl} alt="错题" className="max-h-48 object-contain mb-3 rounded-lg" />
+              <img
+                src={card.metadata.imageUrl}
+                alt="错题"
+                onClick={e => { e.stopPropagation(); if (card.metadata?.imageUrl) setZoomImage(card.metadata.imageUrl); }}
+                className="max-h-48 object-contain mb-3 rounded-lg cursor-zoom-in select-none"
+              />
             )}
             {card.type === 'chinese' && (
               <p className="text-3xl font-black text-white text-center break-words leading-tight font-mono">
@@ -202,7 +208,12 @@ export default function Review({ onHome }: { onHome?: () => void }) {
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center gap-4 py-2">
                 {card.type === 'mistake' && card.metadata?.answerImageUrl && (
-                  <img src={card.metadata.answerImageUrl} alt="答案" className="max-h-56 object-contain rounded-xl border-2 border-candy-pink/20" />
+                  <img
+                    src={card.metadata.answerImageUrl}
+                    alt="答案"
+                    onClick={e => { e.stopPropagation(); if (card.metadata?.answerImageUrl) setZoomImage(card.metadata.answerImageUrl); }}
+                    className="max-h-56 object-contain rounded-xl border-2 border-candy-pink/20 cursor-zoom-in select-none"
+                  />
                 )}
                 {card.back && card.back !== '暂无内容' ? (
                   <p className={`${card.type === 'custom' ? 'text-3xl' : 'text-lg'} font-bold text-candy-text whitespace-pre-line text-center`}>{card.back}</p>
@@ -240,6 +251,27 @@ export default function Review({ onHome }: { onHome?: () => void }) {
 
       {!isFlipped && (
         <p className="text-center text-xs text-candy-text-light mt-2">点击卡片查看答案 👆</p>
+      )}
+
+      {zoomImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4"
+          onClick={() => setZoomImage(null)}
+        >
+          <img
+            src={zoomImage}
+            alt="放大预览"
+            onClick={e => e.stopPropagation()}
+            className="max-w-full max-h-full object-contain rounded-lg"
+          />
+          <button
+            onClick={() => setZoomImage(null)}
+            className="absolute top-4 right-4 bg-white/15 hover:bg-white/30 text-white font-black text-xl w-11 h-11 rounded-full flex items-center justify-center active:scale-95 transition-all"
+          >
+            ✕
+          </button>
+          <p className="absolute bottom-4 inset-x-0 text-center text-white/60 text-sm">点击遮罩或 ✕ 关闭</p>
+        </div>
       )}
     </div>
   );
