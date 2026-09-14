@@ -179,7 +179,12 @@ export default function Review({ onHome }: { onHome?: () => void }) {
             {card.type === 'mistake' && card.metadata?.imageUrl && (
               <img src={card.metadata.imageUrl} alt="错题" className="max-h-48 object-contain mb-3 rounded-lg" />
             )}
-            {card.type !== 'english' && card.type !== 'mistake' && (
+            {card.type === 'chinese' && (
+              <p className="text-3xl font-black text-white text-center break-words leading-tight font-mono">
+                {card.metadata?.phonetic || card.front}
+              </p>
+            )}
+            {card.type !== 'english' && card.type !== 'mistake' && card.type !== 'chinese' && (
               <p className="text-3xl font-black text-white text-center break-words leading-tight">{card.front}</p>
             )}
             {card.type === 'english' && (
@@ -190,7 +195,7 @@ export default function Review({ onHome }: { onHome?: () => void }) {
                 🔊 发音
               </button>
             )}
-            {card.metadata?.phonetic && (
+            {card.metadata?.phonetic && card.type !== 'chinese' && (
               <p className="text-white/80 text-lg mt-2 font-mono">{card.metadata.phonetic}</p>
             )}
             <p className="text-white/60 text-sm mt-6">点击翻面 👆</p>
@@ -237,13 +242,15 @@ export default function Review({ onHome }: { onHome?: () => void }) {
               })
             ) : card.type === 'chinese' ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-4 py-2">
-                <p className="text-2xl font-black text-candy-text text-center break-words">{backLines[0] || card.front}</p>
-                {backLines.length > 1 && (
-                  <div className="w-full space-y-3">
-                    {backLines.slice(1).map((line, i) => (
-                      <p key={i} className="text-lg text-candy-text leading-relaxed text-center">{line}</p>
+                <p className="text-3xl font-black text-candy-text text-center break-words">{card.front}</p>
+                {card.metadata?.examples && card.metadata.examples.length > 0 ? (
+                  <div className="w-full space-y-3 mt-2">
+                    {card.metadata.examples.map((ex: string, i: number) => (
+                      <p key={i} className="text-lg text-candy-text leading-relaxed text-center">💬 {ex}</p>
                     ))}
                   </div>
+                ) : backLines[0] && backLines[0] !== '暂无内容' && (
+                  <p className="text-lg text-candy-text leading-relaxed text-center mt-2">{backLines[0]}</p>
                 )}
               </div>
             ) : (
@@ -258,7 +265,7 @@ export default function Review({ onHome }: { onHome?: () => void }) {
                 )}
               </div>
             )}
-            {card.metadata?.examples && (card.metadata.examples as string[]).map((ex: string, i: number) => (
+            {card.type !== 'chinese' && card.metadata?.examples && (card.metadata.examples as string[]).map((ex: string, i: number) => (
               <p key={i} className="text-base font-bold text-candy-text mt-1">💬 {ex}</p>
             ))}
             {card.metadata?.mnemonic && (
