@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useCards } from '../../hooks/useCards';
 import { useSettings } from '../../hooks/useSettings';
 import { cnPartOfSpeech } from '../../services/dictionary';
+import { speak, pickAudio } from '../../utils/speech';
 import type { FlashCard, ReviewLog } from '../../types';
 
 function getChineseWord(card: FlashCard): string {
@@ -209,7 +210,7 @@ export default function CardLibrary() {
 
         <div className="lg:sticky lg:top-6 space-y-4">
           {previewCard ? (
-            <CardPreview card={previewCard} onClose={() => setPreviewId(null)} />
+            <CardPreview card={previewCard} onClose={() => setPreviewId(null)} accent={settings.accent} />
           ) : (
             <div className="hidden lg:flex flex-col items-center justify-center gap-3 rounded-3xl bg-candy-card/60 border-2 border-dashed border-candy-pink/20 py-24 text-candy-text-light">
               <div className="text-5xl mb-3">👆</div>
@@ -227,7 +228,7 @@ const COLOR_HEX: Record<string, string> = {
   mint: '#C7F9CC', lavender: '#E2D1F9', peach: '#FFB7B2'
 };
 
-function CardPreview({ card, onClose }: { card: FlashCard; onClose: () => void }) {
+function CardPreview({ card, onClose, accent }: { card: FlashCard; onClose: () => void; accent: 'uk' | 'us' }) {
   const [flipped, setFlipped] = useState(false);
   const m = card.metadata;
 
@@ -251,13 +252,24 @@ function CardPreview({ card, onClose }: { card: FlashCard; onClose: () => void }
                 <img src={m.imageUrl} alt="错题" className="max-h-44 object-contain rounded-xl mt-2" />
                 <p className="text-xs text-candy-text-light mt-1">错题图片 · {card.back && card.back !== '暂无内容' ? card.back : '点击查看答案'}</p>
               </>
-            ) : (
+            ) : card.type === 'chinese' ? (
               <>
-                <p className="text-3xl font-black text-candy-text leading-tight mt-2">{card.front}</p>
-                {m.phonetic && <p className="text-candy-pink font-semibold">{card.type === 'chinese' ? m.phonetic : `/${m.phonetic}/`}</p>}
-                {m.pinyin && m.pinyin !== card.front && <p className="text-candy-pink font-semibold">{m.pinyin}</p>}
+                <p className="text-3xl font-black text-candy-text leading-tight font-mono">{m.phonetic || card.front}</p>
+                {!m.phonetic && card.front && <p className="text-candy-pink text-lg">{card.front}</p>}
               </>
-            )}
+            ) : card.type === 'english' ? (
+              <>
+                <button
+                  onClick={e => { e.stopPropagation(); speak(card.front, accent, pickAudio(card, accent)); }}
+                  className="mt-2 bg-candy-pink/10 hover:bg-candy-pink/20 text-candy-pink font-bold px-5 py-2 rounded-full active:scale-95 transition-all"
+                >
+                  🔊 发音
+                </button>
+                {m.phonetic && <p className="text-candy-pink font-semibold font-mono">{m.phonetic}</p>}
+              </>
+            ) : card.type === 'custom' ? (
+              <p className="text-3xl font-black text-candy-text leading-tight">{card.front}</p>
+            ) : null}
             <div className="flex gap-1.5 mt-3 flex-wrap justify-center">
               {card.tags.map((tag: string, i: number) => (
                 <span key={i} className="text-xs bg-candy-cream text-candy-text-light px-2 py-0.5 rounded-full">{tag}</span>
@@ -275,22 +287,44 @@ function CardPreview({ card, onClose }: { card: FlashCard; onClose: () => void }
               ) : (
                 !m.answerImageUrl && !m.imageUrl && <p className="text-candy-text-light text-sm">点击添加答案内容</p>
               )
-            ) : m.meanings && m.meanings.length > 0 ? (
-              m.meanings.map((mm, i) => {
-                const isPhrase = (card.front || '').trim().split(/\s+/).length > 1;
-                return (
-                  <div key={i}>
-                    {!isPhrase && (
-                      <p className="text-sm font-bold text-candy-text">
-                        {mm.word && mm.word !== card.front && <span className="text-candy-pink">{mm.word}</span>}
-                        {mm.partOfSpeech && <span className="ml-1 text-candy-blue">{cnPartOfSpeech(mm.partOfSpeech)}</span>}
-                      </p>
-                    )}
-                    <p className="text-base text-candy-text">{mm.definition}</p>
-                    {mm.example && <p className="text-sm text-candy-text-light italic mt-0.5">“{mm.example}”</p>}
-                  </div>
-                );
-              })
+            ) : card.type === 'english' ? (
+              <>
+                <div className="mb-4 pb-3 border-b border-candy-lavender">
+                  <p className="text-2xl font-black text-candy-text text-center">{card.front}</p>
+                  {m.phonetic && <p className="text-candy-text-light text-lg mt-1 font-mono text-center">{m.phonetic}</p>}
+                </div>
+                {m.meanings && m.meanings.length > 0 ? (
+                  m.meanings.map((mm, i) => {
+                    const isPhrase = (card.front || '').trim().split(/\s+/).length > 1;
+                    const isDerived = !isPhrase && mm.word && mm.word !== card.front && mm.word.toLowerCase() !== card.front.toLowerCase();
+                    return (
+                      <div key={i} className={isDerived ? 'mb-3 border-t-2 border-dashed border-candy-lavender pt-3' : 'mb-3'}>
+                        {!isPhrase && (
+                          <div className="flex items-baseline gap-2 flex-wrap">
+                            {isDerived && (
+                              <>
+                                <span className="text-xl font-black text-amber-700">{mm.word}</span>
+                                <button
+                                  onClick={e => { e.stopPropagation(); speak(mm.word as string, accent); }}
+                                  className="text-sm font-bold text-candy-pink bg-candy-pink/10 hover:bg-candy-pink/20 px-2 py-0.5 rounded-full active:scale-95 transition-transform"
+                                >
+                                  🔊
+                                </button>
+                              </>
+                            )}
+                            {mm.partOfSpeech && <span className="text-sm font-semibold text-candy-pink uppercase">{cnPartOfSpeech(mm.partOfSpeech)}</span>}
+                          </div>
+                        )}
+                        <p className={isPhrase ? 'text-base text-candy-text text-center' : 'text-base text-candy-text'}>{mm.definition}</p>
+                        {mm.example && <p className="text-base font-bold text-candy-text mt-1">{`"${mm.example}"`}</p>}
+                        {isPhrase && <div className="border-b-2 border-dashed border-candy-lavender/60 mt-3" />}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-base text-candy-text">{card.back && card.back !== '暂无内容' ? card.back : card.front}</p>
+                )}
+              </>
             ) : card.type === 'chinese' ? (
               <>
                 <p className="text-2xl font-black text-candy-text">{card.front}</p>
