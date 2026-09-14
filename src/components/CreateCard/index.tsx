@@ -175,6 +175,13 @@ export default function CreateCard() {
       back: back.trim() || '暂无内容',
       metadata: {
         phonetic: isMistake ? undefined : (result?.phonetic || result?.pinyin || undefined),
+        phonetics: isMistake ? undefined : (result?.phonetics || undefined),
+        meanings: isMistake ? undefined : (result?.meanings || undefined),
+        wordFamily: isMistake ? undefined : (result?.wordFamily || undefined),
+        examples: isMistake ? undefined : (result?.examples || undefined),
+        pinyin: isMistake ? undefined : (result?.pinyin || undefined),
+        mnemonic: isMistake ? undefined : (result?.mnemonic || undefined),
+        analysis: isMistake ? undefined : (result?.analysis || undefined),
         imageUrl: isMistake ? (editedMistakeImage || mistakeImageSrc || undefined) : undefined,
         answerImageUrl: isMistake ? (editedAnswerImage || answerImageSrc || undefined) : undefined,
       },
