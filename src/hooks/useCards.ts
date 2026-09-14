@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../services/db';
-import type { FlashCard, ReviewLog } from '../types';
+import type { FlashCard, ReviewLog, CardType } from '../types';
 
 export function useCards() {
   const [cards, setCards] = useState<FlashCard[]>([]);
@@ -36,7 +36,7 @@ export function useCards() {
     await load();
   }, [load]);
 
-  const getDueCards = useCallback(async () => {
+  const getDueCards = useCallback(async (filterType?: CardType) => {
     const all = await db.cards.toArray();
     const now = Date.now();
     const latest = new Map<string, ReviewLog>();
@@ -45,6 +45,7 @@ export function useCards() {
       if (!prev || r.createdAt > prev.createdAt) latest.set(r.cardId, r);
     }
     return all.filter(c => {
+      if (filterType && c.type !== filterType) return false;
       const review = latest.get(c.id);
       if (!review) return true;
       if (review.nextReview <= now) return true;

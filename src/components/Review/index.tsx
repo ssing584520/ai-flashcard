@@ -3,7 +3,7 @@ import { useCards } from '../../hooks/useCards';
 import { useReview } from '../../hooks/useReview';
 import { useSettings } from '../../hooks/useSettings';
 import { cnPartOfSpeech } from '../../services/dictionary';
-import type { FlashCard, ReviewRating } from '../../types';
+import type { FlashCard, ReviewRating, CardType } from '../../types';
 
 function pickAudio(card: FlashCard, accent: 'uk' | 'us'): string | undefined {
   const audio = (card.metadata?.phonetics || [])
@@ -66,17 +66,18 @@ export default function Review({ onHome }: { onHome?: () => void }) {
   const { currentIndex, isFlipped, sessionCards, startSession, flip, rate, progress, sessionDone } = useReview();
   const [started, setStarted] = useState(false);
   const [notice, setNotice] = useState('');
+  const [selectedType, setSelectedType] = useState<CardType | 'all'>('all');
   const card = sessionCards[currentIndex] as FlashCard | undefined;
   const backLines = card ? (card.back || '').split('\n').map(l => l.trim()).filter(Boolean) : [];
 
   const handleStart = () => {
     setNotice('');
-    getDueCards().then(due => {
+    getDueCards(selectedType === 'all' ? undefined : selectedType).then(due => {
       if (due.length > 0) {
         startSession(due);
         setStarted(true);
       } else {
-        setNotice('今天没有到期卡片，休息一下吧 ✨');
+        setNotice('该分类今天没有到期卡片，休息一下吧 ✨');
       }
     }).catch(() => setNotice('加载复习卡片失败，请重试'));
   };
@@ -92,9 +93,29 @@ export default function Review({ onHome }: { onHome?: () => void }) {
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
         <div className="text-8xl mb-6 animate-float">🦊</div>
         <h2 className="text-2xl font-black text-candy-text mb-2">准备好复习了吗？</h2>
-        <p className="text-candy-text-light mb-8 text-center">
+        <p className="text-candy-text-light mb-4 text-center">
           今天有 <span className="font-bold text-candy-pink">{sessionCards.length || cards.length}</span> 张卡片需要复习
         </p>
+        <div className="flex flex-wrap justify-center gap-2 mb-6">
+          {([
+            { id: 'all', label: '🃏 全部' },
+            { id: 'english', label: '🔤 英语' },
+            { id: 'chinese', label: '🀄 中文' },
+            { id: 'mistake', label: '❌ 错题' },
+            { id: 'custom', label: '✏️ 自定义' }
+          ] as { id: CardType | 'all'; label: string }[]).map(t => (
+            <button
+              key={t.id}
+              onClick={() => setSelectedType(t.id)}
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-all active:scale-95
+                ${selectedType === t.id
+                  ? 'bg-candy-pink text-white shadow-soft'
+                  : 'bg-candy-card text-candy-text shadow-card hover:shadow-soft'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
         <button
           onClick={handleStart}
           className="bg-gradient-to-r from-candy-pink to-candy-peach text-white font-bold py-4 px-12 rounded-full text-lg shadow-soft active:scale-95 transition-transform"
