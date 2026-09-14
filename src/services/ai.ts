@@ -205,7 +205,7 @@ const WORD_SYSTEM_PROMPT = `你是一个专业的英语学习助手。请根据�
   "word": "单词",
   "phonetic": "音标",
   "meanings": [
-    { "word": "本义所属词汇（主词填本词；若是派生词填该派生词）", "partOfSpeech": "词性（用中文：名词/动词/形容词/副词等）", "definition": "中文释义", "example": "含该词的地道例句（仅主词需要）" }
+    { "word": "本义所属词汇（主词填本词；若是派生词填该派生词）", "partOfSpeech": "词性（用中文：名词/动词/形容词/副词等）", "definition": "中文释义", "example": "含该词的地道例句（主词和派生词都需要）" }
   ],
   "wordFamily": ["词族/派生词清单"],
   "mnemonic": "记忆技巧（如有）"
@@ -213,7 +213,7 @@ const WORD_SYSTEM_PROMPT = `你是一个专业的英语学习助手。请根据�
 
 要求：
 1. 主词给 2-3 条释义并各配一条不超过 10 个英文单词的短例句。
-2. 派生词（wordFamily 里除主词外）每个只给 1 条精简条目：word + partOfSpeech + definition，**不写 example**，挑最重要的一条释义即可。
+2. 派生词（wordFamily 里除主词外）每个只给 1 条精简条目：word + partOfSpeech + definition，并各配一条不超过 8 个英文单词的短例句。
 3. "wordFamily" 包含主词，最多不超过 4 个派生词。
 4. 必须输出完整、合法的 JSON，禁止用省略号（... 或 …）截断内容。
 5. 整体输出宁短勿缺：内容太多时可把主词释义压缩为 2 条，但字段必须全部输出完。`;
