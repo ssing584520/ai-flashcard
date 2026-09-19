@@ -33,7 +33,7 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
     };
   }, [imgRect]);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     refreshImgRect();
     setIsDragging(true);
@@ -42,7 +42,7 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
     setDragHandle('body');
   }, [refreshImgRect]);
 
-  const handleHandleDown = useCallback((e: React.MouseEvent, handle: string) => {
+  const handleHandleDown = useCallback((e: React.PointerEvent, handle: string) => {
     e.preventDefault();
     e.stopPropagation();
     refreshImgRect();
@@ -52,7 +52,7 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
     setDragHandle(handle);
   }, [refreshImgRect]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!isDragging || !dragMode) return;
     const cur = clientToPct(e.clientX, e.clientY);
     const prev = clientToPct(dragStart.clientX, dragStart.clientY);
@@ -78,7 +78,7 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
     setDragStart({ clientX: e.clientX, clientY: e.clientY });
   }, [isDragging, dragMode, dragHandle, dragStart, clientToPct]);
 
-  const handleMouseUp = useCallback(() => {
+  const handlePointerUp = useCallback(() => {
     setIsDragging(false);
     setDragMode(null);
     setDragHandle('');
@@ -113,11 +113,12 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
       <div ref={containerRef} className="relative overflow-hidden rounded-2xl max-w-lg w-full bg-black/30">
         <img ref={imgRef} src={imageSrc} alt="错题" className="block w-full" onLoad={refreshImgRect} />
         <div
-          className="absolute inset-0 cursor-crosshair"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
+          className="absolute inset-0 cursor-crosshair touch-none"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+          onPointerCancel={handlePointerUp}
         >
           <svg className="absolute inset-0 w-full h-full pointer-events-none">
             <defs>
@@ -137,9 +138,9 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
             { x: `${rect.x}%`, y: `${rect.y + rect.h}%`, h: 'sw' },
             { x: `${rect.x + rect.w}%`, y: `${rect.y + rect.h}%`, h: 'se' },
           ].map(p => (
-            <div key={p.h} className="absolute bg-candy-pink border-2 border-white rounded-sm pointer-events-auto"
+            <div key={p.h} className="absolute bg-candy-pink border-2 border-white rounded-sm pointer-events-auto touch-none"
               style={{ left: p.x, top: p.y, width: hs, height: hs, transform: 'translate(-50%,-50%)', cursor: p.h === 'nw' || p.h === 'se' ? 'nwse-resize' : 'nesw-resize' }}
-              onMouseDown={e => handleHandleDown(e, p.h)}
+              onPointerDown={e => handleHandleDown(e, p.h)}
             />
           ))}
           {[
@@ -148,9 +149,9 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
             { x: `${rect.x}%`, y: `${rect.y + rect.h / 2}%`, h: 'w', c: 'ew-resize' as const },
             { x: `${rect.x + rect.w}%`, y: `${rect.y + rect.h / 2}%`, h: 'e', c: 'ew-resize' as const },
           ].map(p => (
-            <div key={p.h} className="absolute bg-candy-pink border-2 border-white rounded-sm pointer-events-auto"
+            <div key={p.h} className="absolute bg-candy-pink border-2 border-white rounded-sm pointer-events-auto touch-none"
               style={{ left: p.x, top: p.y, width: hs, height: hs, transform: 'translate(-50%,-50%)', cursor: p.c }}
-              onMouseDown={e => handleHandleDown(e, p.h)}
+              onPointerDown={e => handleHandleDown(e, p.h)}
             />
           ))}
         </div>
