@@ -7,10 +7,7 @@ export function pickAudio(card: FlashCard, accent: 'uk' | 'us'): string | undefi
   return audio.find(u => u.includes(`-${accent}.mp3`)) || audio.find(u => u.includes(`-${accent}.`)) || audio[0];
 }
 
-// 模块级单例
 let synth: SpeechSynthesis | null = null;
-let voiceWatchFired = false;
-let voiceWatchTimer: ReturnType<typeof setTimeout> | null = null;
 
 function getSynth(): SpeechSynthesis | null {
   if (synth === null) {
@@ -30,53 +27,32 @@ function pickVoice(lang: string): SpeechSynthesisVoice | undefined {
     || undefined;
 }
 
-// 监听 voice 加载，voice 就绪后补播一次精确发音（Chromium 上首次 speak 常无 voice）
-function armVoiceWatch(replay: () => void) {
-  const s = getSynth();
-  if (!s) return;
-  if (s.getVoices().length > 0 || voiceWatchFired) return;
-
-  let settled = false;
-  const fire = () => {
-    if (settled) return;
-    settled = true;
-    voiceWatchFired = true;
-    clearTimeout(voiceWatchTimer!);
-    s.removeEventListener('voiceschanged', fire);
-    replay();
-  };
-  s.addEventListener('voiceschanged', fire);
-  // voice 始终不加载（某些 Android WebView）则 6s 后强制补播
-  voiceWatchTimer = setTimeout(fire, 6000);
-}
-
 export function speak(word: string, accent: 'uk' | 'us', audioUrl?: string): void {
   const lang = accent === 'uk' ? 'en-GB' : 'en-US';
   const s = getSynth();
   if (!s) return;
 
-  // 每次都在用户手势内 resume，避免 Chromium 后台挂起 TTS
+  // 每次都在用户手势内 resume，防止后台挂起
   s.resume();
 
-  const speakTTS = () => {
-    const u = new SpeechSynthesisUtterance(word);
-    u.lang = lang;
-    u.rate = 0.85;
-    const v = pickVoice(lang);
-    if (v) u.voice = v;
-    // 不调 cancel()：speak() 自动替换队列中未开始的 utterance，
-    // cancel() 在 Chromium 平板上会静默丢弃后续 speak。
-    s.speak(u);
-  };
-
-  // voice 未就绪时先 speak（默认 voice 也出声），voice 加载后补播精确版
-  speakTTS();
-  armVoiceWatch(speakTTS);
+  // 核心修复：每次点击都 cancel() 清掉队列里残留的未播放 utterance，
+  // 再 speak()。Chromium 平板上上一次 speak() 的 utterance 会滞留在队列，
+  // 下次直接 speak() 会被排队在残句之后、且残句可能因 voice 缺失而无声，
+  // 导致"第一次有声音、第二次没声音"。cancel() 清干净后 speak() 立即播。
+  s.cancel();
+  s.speak(makeUtterance(word, lang));
 
   if (audioUrl) {
-    // 同时尝试真实发音（更自然）；失败/异常时 TTS 兜底已覆盖
     const audio = new Audio(audioUrl);
-    const p = audio.play();
-    if (p && typeof p.catch === 'function') p.catch(() => { /* TTS 已兜底 */ });
+    audio.play().catch(() => { /* TTS 已覆盖 */ });
   }
+}
+
+function makeUtterance(word: string, lang: string): SpeechSynthesisUtterance {
+  const u = new SpeechSynthesisUtterance(word);
+  u.lang = lang;
+  u.rate = 0.85;
+  const v = pickVoice(lang);
+  if (v) u.voice = v;
+  return u;
 }
