@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 
 interface ImageEditorProps {
   imageSrc: string;
@@ -6,18 +6,22 @@ interface ImageEditorProps {
   onCancel: () => void;
 }
 
-const HANDLE_SIZE = 12;
+const HANDLE_SIZE = 14;
 const MIN_PCT = 5;
+
+type DragState = {
+  mode: 'move' | 'resize';
+  handle: string;
+  startX: number;
+  startY: number;
+  startPct: { x: number; y: number; w: number; h: number };
+} | null;
 
 export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
   const [cropPct, setCropPct] = useState({ x: 5, y: 5, w: 90, h: 90 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ clientX: 0, clientY: 0 });
-  const [dragMode, setDragMode] = useState<'move' | 'resize' | null>(null);
-  const [dragHandle, setDragHandle] = useState('');
+  const [drag, setDrag] = useState<DragState>(null);
   const [imgRect, setImgRect] = useState({ x: 0, y: 0, w: 0, h: 0 });
 
   const refreshImgRect = useCallback(() => {
@@ -34,66 +38,84 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
     };
   }, [imgRect]);
 
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    e.preventDefault();
-    e.currentTarget.setPointerCapture?.(e.pointerId);
+  // 触屏 + 桌面统一入口：记录拖拽起点
+  const startDrag = useCallback((e: React.PointerEvent | React.TouchEvent, mode: 'move' | 'resize', handle: string) => {
+    let clientX: number, clientY: number;
+    if ('touches' in e && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if ('clientX' in e) {
+      clientX = (e as React.PointerEvent).clientX;
+      clientY = (e as React.PointerEvent).clientY;
+    } else {
+      return;
+    }
+    if ('preventDefault' in e && (e as any).preventDefault) (e as any).preventDefault();
     refreshImgRect();
-    setIsDragging(true);
-    setDragStart({ clientX: e.clientX, clientY: e.clientY });
-    setDragMode('move');
-    setDragHandle('body');
-  }, [refreshImgRect]);
+    setDrag({ mode, handle, startX: clientX, startY: clientY, startPct: cropPct });
+  }, [refreshImgRect, cropPct]);
 
-  const handleHandleDown = useCallback((e: React.PointerEvent, handle: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    refreshImgRect();
-    setIsDragging(true);
-    setDragStart({ clientX: e.clientX, clientY: e.clientY });
-    setDragMode('resize');
-    setDragHandle(handle);
-  }, [refreshImgRect]);
+  // 窗口级 touchmove 监听：绕开 pointer 事件在触屏的不可靠性
+  useEffect(() => {
+    if (!drag) return;
 
+    const onMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      if (!t) return;
+      const cur = clientToPct(t.clientX, t.clientY);
+      const prev = clientToPct(drag.startX, drag.startY);
+      const dx = cur.x - prev.x;
+      const dy = cur.y - prev.y;
+      setCropPct(p => {
+        const r = { ...p };
+        if (drag.mode === 'move') {
+          r.x = Math.max(0, Math.min(100 - r.w, drag.startPct.x + dx));
+          r.y = Math.max(0, Math.min(100 - r.h, drag.startPct.y + dy));
+        } else {
+          const h = drag.handle;
+          if (h.includes('e')) { const nw = drag.startPct.w + dx; if (nw >= MIN_PCT && drag.startPct.x + nw <= 100) r.w = nw; }
+          if (h.includes('w')) { const nw = drag.startPct.w - dx; if (nw >= MIN_PCT && drag.startPct.x + dx >= 0) { r.x += dx; r.w = nw; } }
+          if (h.includes('s')) { const nh = drag.startPct.h + dy; if (nh >= MIN_PCT && drag.startPct.y + nh <= 100) r.h = nh; }
+          if (h.includes('n')) { const nh = drag.startPct.h - dy; if (nh >= MIN_PCT && drag.startPct.y + dy >= 0) { r.y += dy; r.h = nh; } }
+          r.w = Math.max(MIN_PCT, r.w);
+          r.h = Math.max(MIN_PCT, r.h);
+        }
+        return r;
+      });
+    };
+
+    const onEnd = () => setDrag(null);
+
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
+    document.addEventListener('touchcancel', onEnd);
+    return () => {
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+      document.removeEventListener('touchcancel', onEnd);
+    };
+  }, [drag, clientToPct]);
+
+  // 桌面 pointermove：仅当未处于触屏拖拽时生效
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isDragging || !dragMode) return;
+    if (drag?.mode !== 'move') return;
+    if (e.pointerType !== 'mouse') return;
     const cur = clientToPct(e.clientX, e.clientY);
-    const prev = clientToPct(dragStart.clientX, dragStart.clientY);
+    const prev = clientToPct(drag.startX, drag.startY);
     const dx = cur.x - prev.x;
     const dy = cur.y - prev.y;
-
-    setCropPct(prev => {
-      const r = { ...prev };
-      if (dragMode === 'move') {
-        r.x = Math.max(0, Math.min(100 - r.w, r.x + dx));
-        r.y = Math.max(0, Math.min(100 - r.h, r.y + dy));
-      } else {
-        const h = dragHandle;
-        if (h.includes('e')) { const nw = r.w + dx; if (nw >= MIN_PCT && r.x + nw <= 100) r.w = nw; }
-        if (h.includes('w')) { const nw = r.w - dx; if (nw >= MIN_PCT && r.x + dx >= 0) { r.x += dx; r.w = nw; } }
-        if (h.includes('s')) { const nh = r.h + dy; if (nh >= MIN_PCT && r.y + nh <= 100) r.h = nh; }
-        if (h.includes('n')) { const nh = r.h - dy; if (nh >= MIN_PCT && r.y + dy >= 0) { r.y += dy; r.h = nh; } }
-        r.w = Math.max(MIN_PCT, r.w);
-        r.h = Math.max(MIN_PCT, r.h);
-      }
+    setCropPct(p => {
+      const r = { ...p };
+      r.x = Math.max(0, Math.min(100 - r.w, drag.startPct.x + dx));
+      r.y = Math.max(0, Math.min(100 - r.h, drag.startPct.y + dy));
       return r;
     });
-    setDragStart({ clientX: e.clientX, clientY: e.clientY });
-  }, [isDragging, dragMode, dragHandle, dragStart, clientToPct]);
+  }, [drag, clientToPct]);
 
   const handlePointerUp = useCallback(() => {
-    setIsDragging(false);
-    setDragMode(null);
-    setDragHandle('');
+    setDrag(null);
   }, []);
-
-  // move 模式下：手指已捕获在 overlay，短暂越出边界不算取消；
-  // 只有 resize 模式下 pointerleave 才结束拖动（resize 时框边缘会移出）
-  const handlePointerLeave = useCallback((e: React.PointerEvent) => {
-    if (dragMode === 'resize') handlePointerUp();
-    // move 模式下忽略 leave，依靠 setPointerCapture + pointerup 结束
-    void e;
-  }, [dragMode, handlePointerUp]);
 
   const handleConfirm = useCallback(() => {
     if (!imgRef.current) return;
@@ -111,26 +133,36 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
     onConfirm(canvas.toDataURL('image/jpeg', 0.92));
   }, [cropPct, onConfirm]);
 
-  const rect = { x: cropPct.x, y: cropPct.y, w: cropPct.w, h: cropPct.h };
+  const rect = cropPct;
   const hs = HANDLE_SIZE;
 
+  // 统一的"按下并记录起点"：触屏用 touchstart，桌面用 pointerdown
+  const pressBody = useCallback((e: React.PointerEvent | React.TouchEvent, mode: 'move' | 'resize', handle: string) => {
+    startDrag(e, mode, handle);
+  }, [startDrag]);
+
+  const isTouch = 'ontouchstart' in window;
+
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center p-4" tabIndex={0}>
+    <div
+      className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center p-4 select-none"
+      style={{ touchAction: 'none' }}
+      tabIndex={0}
+    >
       <div className="flex items-center gap-3 mb-3 w-full max-w-lg">
-        <span className="text-white/70 text-sm font-bold">🖱️ 拖动边框或角来裁剪图片</span>
+        <span className="text-white/70 text-sm font-bold">👆 拖动裁剪框移动，拖边角调整大小</span>
         <button onClick={onCancel} className="ml-auto text-white/70 hover:text-white text-xl">✕</button>
       </div>
 
       <div ref={containerRef} className="relative overflow-hidden rounded-2xl max-w-lg w-full bg-black/30">
         <img ref={imgRef} src={imageSrc} alt="错题" className="block w-full" onLoad={refreshImgRect} />
         <div
-          ref={overlayRef}
-          className="absolute inset-0 cursor-crosshair touch-none"
-          onPointerDown={handlePointerDown}
+          className="absolute inset-0 cursor-crosshair"
+          style={{ touchAction: 'none' }}
+          onPointerDown={isTouch ? undefined : e => pressBody(e, 'move', 'body')}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerLeave}
-          onPointerCancel={handlePointerUp}
+          onTouchStart={e => pressBody(e, 'move', 'body')}
         >
           <svg className="absolute inset-0 w-full h-full pointer-events-none">
             <defs>
@@ -150,9 +182,13 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
             { x: `${rect.x}%`, y: `${rect.y + rect.h}%`, h: 'sw' },
             { x: `${rect.x + rect.w}%`, y: `${rect.y + rect.h}%`, h: 'se' },
           ].map(p => (
-            <div key={p.h} className="absolute bg-candy-pink border-2 border-white rounded-sm pointer-events-auto touch-none"
-              style={{ left: p.x, top: p.y, width: hs, height: hs, transform: 'translate(-50%,-50%)', cursor: p.h === 'nw' || p.h === 'se' ? 'nwse-resize' : 'nesw-resize' }}
-              onPointerDown={e => handleHandleDown(e, p.h)}
+            <div key={p.h}
+              className="absolute bg-candy-pink border-2 border-white rounded-sm pointer-events-auto"
+              style={{ left: p.x, top: p.y, width: hs, height: hs, transform: 'translate(-50%,-50%)', cursor: p.h === 'nw' || p.h === 'se' ? 'nwse-resize' : 'nesw-resize', touchAction: 'none' }}
+              onPointerDown={isTouch ? undefined : e => pressBody(e, 'resize', p.h)}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onTouchStart={e => pressBody(e, 'resize', p.h)}
             />
           ))}
           {[
@@ -161,9 +197,13 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
             { x: `${rect.x}%`, y: `${rect.y + rect.h / 2}%`, h: 'w', c: 'ew-resize' as const },
             { x: `${rect.x + rect.w}%`, y: `${rect.y + rect.h / 2}%`, h: 'e', c: 'ew-resize' as const },
           ].map(p => (
-            <div key={p.h} className="absolute bg-candy-pink border-2 border-white rounded-sm pointer-events-auto touch-none"
-              style={{ left: p.x, top: p.y, width: hs, height: hs, transform: 'translate(-50%,-50%)', cursor: p.c }}
-              onPointerDown={e => handleHandleDown(e, p.h)}
+            <div key={p.h}
+              className="absolute bg-candy-pink border-2 border-white rounded-sm pointer-events-auto"
+              style={{ left: p.x, top: p.y, width: hs, height: hs, transform: 'translate(-50%,-50%)', cursor: p.c, touchAction: 'none' }}
+              onPointerDown={isTouch ? undefined : e => pressBody(e, 'resize', p.h)}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onTouchStart={e => pressBody(e, 'resize', p.h)}
             />
           ))}
         </div>
