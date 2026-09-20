@@ -12,6 +12,7 @@ const MIN_PCT = 5;
 export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const [cropPct, setCropPct] = useState({ x: 5, y: 5, w: 90, h: 90 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ clientX: 0, clientY: 0 });
@@ -35,6 +36,7 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     refreshImgRect();
     setIsDragging(true);
     setDragStart({ clientX: e.clientX, clientY: e.clientY });
@@ -45,6 +47,7 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
   const handleHandleDown = useCallback((e: React.PointerEvent, handle: string) => {
     e.preventDefault();
     e.stopPropagation();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     refreshImgRect();
     setIsDragging(true);
     setDragStart({ clientX: e.clientX, clientY: e.clientY });
@@ -84,6 +87,14 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
     setDragHandle('');
   }, []);
 
+  // move 模式下：手指已捕获在 overlay，短暂越出边界不算取消；
+  // 只有 resize 模式下 pointerleave 才结束拖动（resize 时框边缘会移出）
+  const handlePointerLeave = useCallback((e: React.PointerEvent) => {
+    if (dragMode === 'resize') handlePointerUp();
+    // move 模式下忽略 leave，依靠 setPointerCapture + pointerup 结束
+    void e;
+  }, [dragMode, handlePointerUp]);
+
   const handleConfirm = useCallback(() => {
     if (!imgRef.current) return;
     const img = imgRef.current;
@@ -113,11 +124,12 @@ export default function ImageEditor({ imageSrc, onConfirm, onCancel }: ImageEdit
       <div ref={containerRef} className="relative overflow-hidden rounded-2xl max-w-lg w-full bg-black/30">
         <img ref={imgRef} src={imageSrc} alt="错题" className="block w-full" onLoad={refreshImgRect} />
         <div
+          ref={overlayRef}
           className="absolute inset-0 cursor-crosshair touch-none"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
+          onPointerLeave={handlePointerLeave}
           onPointerCancel={handlePointerUp}
         >
           <svg className="absolute inset-0 w-full h-full pointer-events-none">
